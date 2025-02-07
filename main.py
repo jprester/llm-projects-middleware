@@ -33,17 +33,18 @@ class CompletionRequest(BaseModel):
 
 @app.post("/completion")
 async def get_completion(request: CompletionRequest):
-    if not request.content:
-        return {"error": "Content cannot be empty"}
+    if not request.content or len(request.content) == 0:
+        raise HTTPException(status_code=400, detail="Content cannot be empty")
     if not api_key:
         return {"error": "API key not found"}
+    if not request.model:
+        request.model = "mistral-tiny"
 
-    model = request.model if request.model else "mistral-tiny"
     client = Mistral(api_key=api_key)
 
     try:
         chat_response = client.chat.complete(
-            model=model,
+            model=request.model,
             messages=request.content,
         )
         return {"response": chat_response.choices[0].message.content}
@@ -64,22 +65,29 @@ async def encode_image(image_path):
         print(f"Error: {e}")
         return None
 
-@app.post("/image-recognition")
-async def image_recognition():
-    # Path to your image
-    image_path = "./janko.jpg"
-    print(f"Image path: {image_path}")
+class ImageCompletionRequest(BaseModel):
+    messages: list
+    model: str = None
 
-    # Getting the base64 string
-    base64_image = await encode_image(image_path)
+@app.post("/image-recognition")
+async def image_recognition(data: ImageCompletionRequest):
+    if not data.model:
+        data.model = "pixtral-12b-2409"
+    if not data.messages or len(data.messages) < 2:
+        raise HTTPException(status_code=400, detail="At least two content items are required")
+
+    if hasattr(data, 'messages') and isinstance(data.messages, list) and len(data.messages) > 0:
+        print("messages[0]: ", data.messages[0]["content"])
+    else:
+        print("The required property does not exist or is not accessible.")
 
     # Specify model
-    model = "pixtral-12b-2409"
+    model = data.model
 
-    # Initialize the Mistral client
+    # Initialize the Mistral client 
     client = Mistral(api_key=api_key)
 
-    if not base64_image:
+    if not data.messages[1]["content"]:
         raise HTTPException(status_code=400, detail="Image not found")
     else:
         messages = [
@@ -88,11 +96,11 @@ async def image_recognition():
                 "content": [
                     {
                         "type": "text",
-                        "text": "What's in this image?"
+                        "text": data.messages[0]["content"]
                     },
                     {
                         "type": "image_url",
-                        "image_url": f"data:image/jpeg;base64,{base64_image}"
+                        "image_url": f"{data.messages[1]["content"]}"
                     }
                 ]
             }
