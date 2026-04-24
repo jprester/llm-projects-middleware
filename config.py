@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
     CODESTRAL_API_KEY: str | None = None
+    DEEPSEEK_API_KEY: str | None = None
 
     @property
     def allowed_origins_list(self) -> List[str]:

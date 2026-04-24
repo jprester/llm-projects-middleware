@@ -9,6 +9,7 @@ http_client = httpx.AsyncClient(timeout=60.0)
 PROVIDER_URLS = {
     "anthropic": "https://api.anthropic.com/v1/messages",
     "openrouter": "https://openrouter.ai/api/v1/chat/completions",
+    "deepseek": "https://api.deepseek.com/chat/completions",
 }
 
 def parse_data_url(data_url: str) -> tuple[str, str]:
@@ -119,15 +120,35 @@ async def proxy_request(provider: str, model: str, messages: list, max_tokens: i
         if system:
             prepared_messages.append({"role": "system", "content": system})
         prepared_messages.extend(messages)
-        
+
         body = {"model": model, "max_tokens": max_tokens, "messages": prepared_messages}
-        
+
         resp = await http_client.post(PROVIDER_URLS["openrouter"], headers=headers, json=body)
         if resp.status_code != 200:
             raise HTTPException(status_code=resp.status_code, detail=resp.text)
-        
+
         data = resp.json()
         text = data["choices"][0]["message"]["content"]
         return {"response": text}
-    
+
+    elif provider == "deepseek":
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+        prepared_messages = []
+        if system:
+            prepared_messages.append({"role": "system", "content": system})
+        prepared_messages.extend(messages)
+
+        body = {"model": model, "max_tokens": max_tokens, "messages": prepared_messages}
+
+        resp = await http_client.post(PROVIDER_URLS["deepseek"], headers=headers, json=body)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+
+        data = resp.json()
+        text = data["choices"][0]["message"]["content"]
+        return {"response": text}
+
     raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
